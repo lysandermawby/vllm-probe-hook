@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vllm-probe-hook"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "vllm==0.6.6",
+    "transformers>=4.45.2,<5.0.0",
+    "torch>=2.0.0",
+]
+
+[project.optional-dependencies]
+examples = [
+    "click>=8.0",
+    "python-dotenv>=1.0",
+    "datasets>=2.0",
+    "pandas>=1.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
