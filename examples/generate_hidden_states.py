@@ -3,17 +3,16 @@
 Example: extract hidden states while generating with vllm_probe_hook.
 
 Loads a small slice of the LongFact dataset, runs batched generation with
-Llama-3.1-8B-Instruct, and saves per-token hidden states (layers 15 and 20)
-to a JSONL file.
+Llama-3.1-8B-Instruct, and saves per-token hidden states to a JSONL file.
 
 Install the extra deps needed to run this example:
-    pip install "vllm-probe-hook[examples]"
+    uv pip install "vllm-probe-hook[examples]"
 
 Then run:
     python generate_hidden_states.py
 
-Requires HF_TOKEN in your environment (or a .env file) because
-Meta-Llama-3.1-8B-Instruct is a gated model.
+If you need to download Meta-Llama-3.1-8B-Instruct, will require an HF_TOKEN
+in your environment (or .env) as this is a gated model.
 """
 
 from pathlib import Path
@@ -23,9 +22,9 @@ import os
 import click
 from datasets import load_dataset
 from dotenv import load_dotenv
-from vllm import SamplingParams
 
-from vllm_probe_hook import LLM
+# exports from vllm can all be performed using vllm_probe_hook
+from vllm_probe_hook import LLM, SamplingParams
 
 
 def display_outputs(outputs):
@@ -52,6 +51,7 @@ def save_outputs(outputs, filepath: Path, all_tokens: bool = True):
     """
     if filepath.suffix != ".jsonl":
         print(f"Warning: {filepath} does not have a .jsonl extension.")
+        # continue downloading regardless
 
     with open(filepath, "w") as f:
         for output in outputs:

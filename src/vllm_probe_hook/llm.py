@@ -13,6 +13,8 @@ Usage:
 
 The returned RequestOutput is a subclass of vllm.RequestOutput with an added
 .hidden_states attribute, so all existing vLLM result handling works unchanged.
+
+The hidden_states attribute is a dictionary mapping layer indices to a tensor of all stored activations.
 """
 from __future__ import annotations
 
@@ -65,7 +67,7 @@ class LLM:
     """Wrapper around vllm.LLM that extracts per-layer hidden states via hooks.
 
     Note: only one LLM (or AsyncLLM) instance should exist per process.
-    Hook state is module-level; multiple instances will interfere with each other.
+    Hook state is module-level, so multiple instances will interfere with each other. Known limitation.
 
     Args:
         model: HuggingFace model name or path.
@@ -145,8 +147,8 @@ class LLM:
     def remove_hooks(self) -> None:
         """Remove all registered forward hooks and release hook handles.
 
-        Call this when you no longer need hidden state extraction, e.g. before
-        the process exits or to free any resources held by hook handles.
+        Call this when you no longer need hidden state extraction to free resources.
+        Note that this will prevent any further extraction of hidden states on this object.
         """
         from vllm_probe_hook import _hooks
         _hooks.remove_hooks()
