@@ -3,16 +3,17 @@
 Example: extract hidden states while generating with vllm_probe_hook.
 
 Loads a small slice of the LongFact dataset, runs batched generation with
-Llama-3.1-8B-Instruct, and saves per-token hidden states to a JSONL file.
+Llama-3.1-8B-Instruct, and saves per-token hidden states (layers 15 and 20)
+to a JSONL file.
 
 Install the extra deps needed to run this example:
-    uv pip install "vllm-probe-hook[examples]"
+    pip install "vllm-probe-hook[examples]"
 
 Then run:
     python generate_hidden_states.py
 
-If you need to download Meta-Llama-3.1-8B-Instruct, will require an HF_TOKEN
-in your environment (or .env) as this is a gated model.
+Requires HF_TOKEN in your environment (or a .env file) because
+Meta-Llama-3.1-8B-Instruct is a gated model.
 """
 
 from pathlib import Path
@@ -22,9 +23,9 @@ import os
 import click
 from datasets import load_dataset
 from dotenv import load_dotenv
+from vllm import SamplingParams
 
-# exports from vllm can all be performed using vllm_probe_hook
-from vllm_probe_hook import LLM, SamplingParams
+from vllm_probe_hook import LLM
 
 
 def display_outputs(outputs):
@@ -51,7 +52,6 @@ def save_outputs(outputs, filepath: Path, all_tokens: bool = True):
     """
     if filepath.suffix != ".jsonl":
         print(f"Warning: {filepath} does not have a .jsonl extension.")
-        # continue downloading regardless
 
     with open(filepath, "w") as f:
         for output in outputs:
@@ -70,10 +70,11 @@ def save_outputs(outputs, filepath: Path, all_tokens: bool = True):
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
-@click.option("--num-prompts", default=5, show_default=True, help="Number of prompts to generate.")
-@click.option("--output", default="output_data.jsonl", show_default=True, help="Output JSONL file path.")
-@click.option("--all-tokens", is_flag=True, default=False, help="Save hidden states for every token (warning: very large files).")
-def main(num_prompts: int, output: str, all_tokens: bool):
+@click.option("-n", "--num-prompts", default=5, show_default=True, help="Number of prompts to generate.")
+@click.option("-o", "--output", default="output_data.jsonl", show_default=True, help="Output JSONL file path.")
+@click.option("-a", "--all-tokens", is_flag=True, default=False, help="Save hidden states for every token (warning: very large files).")
+@click.option("-m", "--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct", help="path to model or huggingface ID e.g. /pool/models/Llama-3.1-8B-Instruct")
+def main(num_prompts: int, output: str, all_tokens: bool, model: str):
     load_dotenv()
 
     # Show cache locations to help debug OOM issues on hosted hardware.
@@ -81,7 +82,7 @@ def main(num_prompts: int, output: str, all_tokens: bool):
         print(f"{var} = {os.getenv(var)}")
 
     llm = LLM(
-        model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model,
         gpu_memory_utilization=0.7,
         max_model_len=1024,
         # enforce_eager=True is set automatically by vllm_probe_hook (required for hooks).
