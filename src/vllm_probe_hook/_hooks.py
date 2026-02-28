@@ -173,12 +173,18 @@ def _make_hook(engine, layer_id: int):
                         continue
                     token_hidden = hidden_states[i : i + 1]  # [1, H]
                     _activation_store.append(request_id, layer_id, token_hidden)
-            # else: prefill step (or mixed prefill+decode): n_tokens != n_running.
-            # During prefill vLLM processes the whole prompt for one (or more)
-            # sequences at once.  We skip all tokens here — the hook will be
-            # called again in the decode phase with the generated tokens.
-            # (Nothing to do; we rely on mark_prefill / unmark_prefill to gate
-            # which requests we collect for.)
+            elif n_running == 1:
+                # Single-request prefill: capture the last prompt token.
+                # This is the hidden state at the final prompt position,
+                # where the model encodes its representation before
+                # generating the first output token.
+                # Batched prefill (n_running > 1) is skipped because
+                # vLLM flattens multiple prompts into one tensor,
+                # making per-request slicing ambiguous.
+                request_id = running_ids[0]
+                if request_id not in skip_ids:
+                    last_hidden = hidden_states[-1:, :]  # [1, H]
+                    _activation_store.append(request_id, layer_id, last_hidden)
 
         except Exception as e:
             logging.getLogger(__name__).debug(
