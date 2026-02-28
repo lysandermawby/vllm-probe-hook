@@ -38,6 +38,17 @@ _hooks_lock = threading.Lock()
 _prefill_ids: set[str] = set()
 _prefill_lock = threading.Lock()
 
+# Module-level flags controlling what to capture
+_include_prefill: bool = False
+_include_decode: bool = True
+
+
+def configure(include_prefill: bool = False, include_decode: bool = True) -> None:
+    """Set module-level capture flags.  Called from LLM.__init__."""
+    global _include_prefill, _include_decode
+    _include_prefill = include_prefill
+    _include_decode = include_decode
+
 
 def mark_prefill(request_id: str) -> None:
     with _prefill_lock:
@@ -168,17 +179,26 @@ def _make_hook(engine, layer_id: int):
 
             if n_tokens == n_running:
                 # Decode step: one token per running sequence
-                for i, request_id in enumerate(running_ids):
-                    if request_id in skip_ids:
-                        continue
-                    token_hidden = hidden_states[i : i + 1]  # [1, H]
-                    _activation_store.append(request_id, layer_id, token_hidden)
-            # else: prefill step (or mixed prefill+decode): n_tokens != n_running.
-            # During prefill vLLM processes the whole prompt for one (or more)
-            # sequences at once.  We skip all tokens here — the hook will be
-            # called again in the decode phase with the generated tokens.
-            # (Nothing to do; we rely on mark_prefill / unmark_prefill to gate
-            # which requests we collect for.)
+                if _include_decode:
+                    for i, request_id in enumerate(running_ids):
+                        if request_id in skip_ids:
+                            continue
+                        token_hidden = hidden_states[i : i + 1]  # [1, H]
+                        _activation_store.append(request_id, layer_id, token_hidden)
+            elif _include_prefill:
+                # Prefill step: n_tokens != n_running.
+                # Identify request(s) still in prefill phase.
+                prefilling = [rid for rid in running_ids if rid in skip_ids]
+                if len(prefilling) == 1:
+                    _activation_store.append_prefill(
+                        prefilling[0], layer_id, hidden_states
+                    )
+                elif len(prefilling) > 1:
+                    logging.getLogger(__name__).debug(
+                        "Multiple concurrent prefills (%d) on layer %d — skipping.",
+                        len(prefilling), layer_id,
+                    )
+            # else: prefill step but _include_prefill is False — skip.
 
         except Exception as e:
             logging.getLogger(__name__).debug(

@@ -93,6 +93,27 @@ asyncio.run(main())
 
 For more, see the `./examples/` directory.
 
+## Available Options
+
+This repository makes it possible to run vLLM while grabbing hidden states from the prefill and decode stage.
+
+The LLM object at initialisation accepts the following relevant new arguments (with their defaults shown) to affect it's behaviour:
+
+```bash
+layers: list[int] | list[str], 
+include_prefill: bool = False,
+include_decode: bool = True,
+last_prefill_token: bool = False,
+last_decode_token: bool = False,
+```
+
+Their usage is as follows:
+- **layers:** Either a list of integers representing the indices of layers where you would like to capture the residual stream *after the layer*, or the "all" string indicating that all layers should be captured. Note that the residual stream will be captured after the layer has completed it's operation.
+- **include_prefill:** Capture hidden states during the prefill stage. These states are accessible as the `prefill_hidden` attribute on the RequestOutput object. Defaults to false.
+- **include_decode:** Capture hidden states during the decode stage (default behaviour). These states are accessible as the `hidden` attribute on the RequestOutput object (see the `./examples/generate_hidden_states.py` file).
+- **last_prefill_token:** Special option to only return the activations on the final token of the pre-fill stage. Bear in mind that the default behaviour is to return tensors with the hidden states of all tokens received in the prefill stage.
+- **last_decode_token:** Special option to only return the activations on the final token of the decode stage. The default behaviour is to return tensors with the hidden states of all tokens generated during the decode stage.
+
 ## Implementation Details
 
 To leverage the speed of vLLM while still storing intermediate model activations for future use, this approach uses a pytorch hook attached to the underlying model object.
